@@ -1,0 +1,83 @@
+# KirinoKagami configuration. Copy to config.toml and fill in the blanks.
+# Secrets can also be supplied by environment variables (see README).
+
+[server]
+listen = "0.0.0.0:62011"
+# Bearer token for the /admin endpoints. Leave empty to disable them.
+admin_token = ""
+# Fetch sets that are not in the database yet straight from osu! when
+# requested through /api/s, /api/b, /api/md5 or /d.
+fetch_missing = true
+
+# osu! website session, used to download .osz files.
+[osu]
+# The osu_session cookie of a browser logged into osu.ppy.sh: in your browser
+# open DevTools (F12) -> Storage/Application -> Cookies -> https://osu.ppy.sh
+# and copy the value of "osu_session". Treat it like a password. When it
+# expires (or you log out of that browser session) paste a new one and restart.
+session_cookie = ""
+user_agent = "KirinoKagami/1.0 (osu! beatmap mirror)"
+
+# osu! API v2 OAuth client - create one at https://osu.ppy.sh/home/account/edit#oauth
+# (any callback URL works; only the client-credentials grant is used).
+[api]
+client_id = 0
+client_secret = ""
+# osu! asks API consumers to stay at or below 60 requests/minute.
+requests_per_minute = 60
+burst = 5
+
+# MySQL / MariaDB. The defaults below are the account the bundled MariaDB
+# creates (make up-all / docker compose --profile db up), so they work as-is.
+# For your own database instead, change host to its address
+# ("host.docker.internal" = the Docker host) and use your own credentials.
+[database]
+host = "mariadb"
+port = 3306
+user = "kirino"
+password = "kirino"
+name = "kirinokagami"
+# dsn = "user:pass@tcp(host:3306)/kirinokagami?parseTime=true&loc=UTC&charset=utf8mb4"  # overrides the fields above
+max_open_conns = 20
+max_idle_conns = 10
+connect_timeout = "10s"
+connect_attempts = 30
+
+[scraper]
+enabled = true
+# How often to poll osu! for new / updated / newly ranked maps.
+discover_interval = "5m"
+discover_max_pages = 40
+# One-time crawl of every beatmapset on osu! (resumable across restarts).
+backfill = true
+# "search" pages through the API search (fast). "beatmap_ids" sweeps beatmap
+# IDs 50 at a time (slower, use if the search crawl misses sets).
+backfill_mode = "search"
+# Re-fetch stored sets to keep playcounts, favourites and status current.
+refresh = true
+refresh_batch = 50
+refresh_ranked = "168h"      # ranked + approved
+refresh_loved = "168h"
+refresh_pending = "12h"      # qualified, pending, WIP
+refresh_graveyard = "1440h"
+
+[search]
+# Cron schedule for rebuilding the in-memory search index from the database.
+rebuild_cron = "*/30 * * * *"
+rebuild_on_start = true
+# Saved index, loaded at startup so search is available immediately.
+snapshot_path = "data/search_index.gob"
+# Rendered search responses are cached until the next rebuild or TTL.
+result_cache_size = 10000
+result_cache_ttl = "30m"
+default_amount = 50
+max_amount = 100
+
+[downloads]
+enabled = true
+cache_dir = "data/osz"
+# Downloads from osu! per minute (cached files don't count).
+requests_per_minute = 30
+timeout = "5m"
+# Evict the oldest archives above this size. 0 = unlimited.
+max_cache_gb = 0

@@ -1,0 +1,47 @@
+# By default only the mirror runs and connects to your own MySQL/MariaDB
+# (set database.host in config.toml; "host.docker.internal" = the Docker host).
+#
+# To also run a MariaDB container:  docker compose --profile db up -d
+# and set database.host = "mariadb" in config.toml.
+
+services:
+  kirinokagami:
+    build: .
+    image: kirinokagami:latest
+    restart: unless-stopped
+    ports:
+      - "62011:62011"
+    volumes:
+      - ./config.toml:/app/config.toml:ro
+      - kirino-data:/app/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      mariadb:
+        condition: service_healthy
+        required: false
+
+  mariadb:
+    image: mariadb:11.4
+    profiles: ["db"]
+    restart: unless-stopped
+    # On first start (empty volume) MariaDB creates the database and a user
+    # with full rights on it. The defaults match [database] in
+    # config.example.toml; override them in a .env file next to this one.
+    # Changing them later needs a fresh volume (make nuke) or ALTER USER.
+    environment:
+      MARIADB_DATABASE: ${KIRINO_DB_NAME:-kirinokagami}
+      MARIADB_USER: ${KIRINO_DB_USER:-kirino}
+      MARIADB_PASSWORD: ${KIRINO_DB_PASSWORD:-kirino}
+      MARIADB_RANDOM_ROOT_PASSWORD: "1"
+    volumes:
+      - mariadb-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  kirino-data:
+  mariadb-data:
