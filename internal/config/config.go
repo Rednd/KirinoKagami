@@ -33,6 +33,7 @@ type Config struct {
 	Scraper   Scraper   `toml:"scraper"`
 	Search    Search    `toml:"search"`
 	Downloads Downloads `toml:"downloads"`
+	Frontend  Frontend  `toml:"frontend"`
 }
 
 type Server struct {
@@ -143,6 +144,18 @@ type Downloads struct {
 	MaxCacheGB float64 `toml:"max_cache_gb"`
 }
 
+// Frontend is the optional browser UI served at /.
+type Frontend struct {
+	Enabled bool   `toml:"enabled"`
+	Title   string `toml:"title"`
+	// CoverBaseURL is where cover images live; the page appends
+	// /{setID}/covers/card.jpg (and cover.jpg, @2x variants). Empty hides covers.
+	CoverBaseURL string `toml:"cover_base_url"`
+	// PreviewURL is the audio preview URL with {id} for the set ID. Empty
+	// hides the preview buttons.
+	PreviewURL string `toml:"preview_url"`
+}
+
 func Default() Config {
 	return Config{
 		Server: Server{Listen: "0.0.0.0:62011", FetchMissing: true},
@@ -175,6 +188,12 @@ func Default() Config {
 			ResultCacheTTL:  Duration{30 * time.Minute},
 			DefaultAmount:   50,
 			MaxAmount:       100,
+		},
+		Frontend: Frontend{
+			Enabled:      false,
+			Title:        "KirinoKagami",
+			CoverBaseURL: "https://assets.ppy.sh/beatmaps",
+			PreviewURL:   "https://b.ppy.sh/preview/{id}.mp3",
 		},
 		Downloads: Downloads{
 			Enabled:           true,

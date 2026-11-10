@@ -30,6 +30,31 @@ These need `server.admin_token` set and the header `Authorization: Bearer <token
 | `POST /admin/search/rebuild` | Rebuild the search index now |
 | `POST /admin/sets/{id}/refresh` | Re-fetch one set from osu! now |
 
+## Browser frontend
+
+The frontend is off by default. With `frontend.enabled = true`, `/` serves a web page
+for browsing and searching the mirror. It shows each set's cover, title, artist, mapper,
+ranked status, difficulties per game mode (coloured by star rating), BPM, length and
+favourites.
+- **Searching and filtering:** a search box plus status and game-mode filters. A "Load
+  more" button below the results fetches the next 48 sets, and the current search is
+  kept in the URL so it can be shared.
+- **Detail view:** click a set to see its full difficulty list (stars, CS/AR/OD/HP, BPM,
+  length, max combo, plays), metadata and tags, plus download, audio-preview and
+  osu! website links. Each set has its own shareable URL (`/?set=<id>`).
+- **Audio previews:** the play button on a card (or in the detail view) starts that
+  set's preview. A player bar at the bottom of the page can pause and resume, skip 5
+  seconds back or forward, seek to any point, and close the preview. The same controls
+  appear inside the detail view.
+- **Theme:** opens in light mode. A button at the top right switches to dark mode, and
+  the browser remembers the choice.
+
+It uses the mirror's own `/api/search` and `/api/s/{id}`. Cover images and audio
+previews load from osu!'s public asset servers by default (`frontend.cover_base_url`,
+`frontend.preview_url`). Set those to empty strings to turn them off. Download buttons
+only appear when `downloads.enabled` is on. While the frontend is off, `/` shows a
+plain-text info page and only the API is served.
+
 ## How it works
 
 **Scraper** (osu! API v2, client credentials, shared rate limit of `api.requests_per_minute`):
@@ -134,7 +159,8 @@ either way. If you only want metadata, set `downloads.enabled = false`.
 [`nginx/kirinokagami.conf`](nginx/kirinokagami.conf) is a ready-made HTTPS reverse proxy
 for the mirror:
 
-- `/api/*` and `/` are proxied with gzip and a per-IP rate limit.
+- `/api/*` and `/` are proxied with gzip and a per-IP rate limit. `/static/` (the
+  frontend's CSS and JavaScript) is proxied with gzip.
 - `/d/*` is streamed without buffering. It gets long timeouts, because the first download of
   a set waits on osu!, and a stricter rate limit.
 - `/admin/*` is only allowed from the machine itself.

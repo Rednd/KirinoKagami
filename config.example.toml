@@ -73,6 +73,17 @@ result_cache_ttl = "30m"
 default_amount = 50
 max_amount = 100
 
+# Browser frontend at / for searching and browsing the mirror. Off by default:
+# / then shows a plain-text page and only the API is served.
+[frontend]
+enabled = false
+title = "Kirino Kagami"
+# Cover images: the page loads {cover_base_url}/{set id}/covers/card.jpg.
+# Leave empty to show coloured placeholders instead.
+cover_base_url = "https://assets.ppy.sh/beatmaps"
+# Audio previews ({id} = set id). Leave empty to hide the preview buttons.
+preview_url = "https://b.ppy.sh/preview/{id}.mp3"
+
 [downloads]
 enabled = true
 cache_dir = "data/osz"

@@ -6,7 +6,8 @@
 //	GET /api/search       search (query, amount, offset, status, mode)
 //	GET /d/{id}[n]        download .osz ("n" suffix = no video)
 //
-// plus /api/status and token-protected /admin endpoints.
+// plus /api/status, token-protected /admin endpoints and, when enabled, the
+// browser frontend at / and /static/.
 package api
 
 import (
@@ -25,6 +26,7 @@ import (
 
 	"kirinokagami/internal/config"
 	"kirinokagami/internal/db"
+	"kirinokagami/internal/frontend"
 	"kirinokagami/internal/models"
 	"kirinokagami/internal/osu"
 	"kirinokagami/internal/scraper"
@@ -38,19 +40,24 @@ type Server struct {
 	search     *search.Service
 	scraper    *scraper.Scraper    // may be nil
 	downloader *storage.Downloader // may be nil
-	web        *osu.Web            // may be nil
+	frontend   *frontend.Handler   // may be nil
 	log        *slog.Logger
 	started    time.Time
 }
 
 func New(cfg config.Config, store *db.Store, srch *search.Service, sc *scraper.Scraper,
-	dl *storage.Downloader, log *slog.Logger) *Server {
-	return &Server{cfg: cfg, store: store, search: srch, scraper: sc, downloader: dl, log: log, started: time.Now()}
+	dl *storage.Downloader, fe *frontend.Handler, log *slog.Logger) *Server {
+	return &Server{cfg: cfg, store: store, search: srch, scraper: sc, downloader: dl, frontend: fe, log: log, started: time.Now()}
 }
 
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /{$}", s.index)
+	if s.frontend != nil {
+		mux.HandleFunc("GET /{$}", s.frontend.Index)
+		mux.HandleFunc("GET /static/", s.frontend.Static)
+	} else {
+		mux.HandleFunc("GET /{$}", s.index)
+	}
 	mux.HandleFunc("GET /api", s.index)
 	mux.HandleFunc("GET /api/status", s.status)
 	mux.HandleFunc("GET /api/b/{id}", s.beatmap)

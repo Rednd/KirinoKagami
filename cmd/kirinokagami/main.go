@@ -19,6 +19,7 @@ import (
 	"kirinokagami/internal/api"
 	"kirinokagami/internal/config"
 	"kirinokagami/internal/db"
+	"kirinokagami/internal/frontend"
 	"kirinokagami/internal/osu"
 	"kirinokagami/internal/scraper"
 	"kirinokagami/internal/search"
@@ -112,9 +113,17 @@ func run(cfgPath string, log *slog.Logger) error {
 		wg.Go(func() { dl.Janitor(ctx) })
 	}
 
+	var fe *frontend.Handler
+	if cfg.Frontend.Enabled {
+		if fe, err = frontend.New(cfg.Frontend, cfg.Downloads.Enabled); err != nil {
+			return err
+		}
+		log.Info("browser frontend enabled", "path", "/")
+	}
+
 	srv := &http.Server{
 		Addr:              cfg.Server.Listen,
-		Handler:           api.New(cfg, store, srch, sc, dl, log.With("component", "http")).Handler(),
+		Handler:           api.New(cfg, store, srch, sc, dl, fe, log.With("component", "http")).Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	errCh := make(chan error, 1)
