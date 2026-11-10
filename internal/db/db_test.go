@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"os"
+	"slices"
 	"testing"
 	"time"
 
@@ -81,5 +82,57 @@ func TestUpsertRoundTrip(t *testing.T) {
 	ids, err := s.FallbackSearch(ctx, []string{"freedom"}, []int{1}, 1, 10, 0)
 	if err != nil || len(ids) == 0 || ids[0] != id {
 		t.Errorf("fallback search: %v %v", ids, err)
+	}
+}
+
+// Integration test; runs only when KIRINO_TEST_DSN points at a scratch DB.
+func TestFallbackSearchOrdersByStatusDate(t *testing.T) {
+	dsn := os.Getenv("KIRINO_TEST_DSN")
+	if dsn == "" {
+		t.Skip("KIRINO_TEST_DSN not set")
+	}
+	ctx := context.Background()
+	cfg := config.Default().Database
+	cfg.DSN = dsn
+	cfg.ConnectAttempts = 1
+	s, err := Open(ctx, cfg, slog.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	if err := s.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
+	day := func(d int) time.Time { return time.Date(2024, 1, d, 0, 0, 0, 0, time.UTC) }
+	sets := []*models.Set{
+		{ID: 990900, RankedStatus: 1, ApprovedDate: day(1)},  // new upload, ranked long ago
+		{ID: 990800, RankedStatus: 1},                        // ranked, date missing
+		{ID: 990600, RankedStatus: 0},                        // pending
+		{ID: 990100, RankedStatus: 1, ApprovedDate: day(20)}, // old upload, ranked recently
+	}
+	for _, set := range sets {
+		set.LastUpdate = day(1)
+		set.ChildrenBeatmaps = []models.Beatmap{{ID: set.ID * 10, ParentSetID: set.ID, Mode: 0}}
+		if _, err := s.UpsertSet(ctx, set, UpsertOptions{NextCheck: time.Now().Add(time.Hour)}); err != nil {
+			t.Fatal(err)
+		}
+		defer s.DeleteSet(ctx, set.ID)
+	}
+	only := func(ids []int) []int { // ignore rows from other tests
+		var out []int
+		for _, id := range ids {
+			if id >= 990000 && id < 991000 {
+				out = append(out, id)
+			}
+		}
+		return out
+	}
+	ids, err := s.FallbackSearch(ctx, nil, []int{1}, 0, 100, 0)
+	if got, want := only(ids), []int{990100, 990900, 990800}; err != nil || !slices.Equal(got, want) {
+		t.Errorf("ranked: got %v want %v (err %v)", got, want, err)
+	}
+	ids, err = s.FallbackSearch(ctx, nil, []int{1, 0}, 0, 100, 0)
+	if got, want := only(ids), []int{990900, 990800, 990600, 990100}; err != nil || !slices.Equal(got, want) {
+		t.Errorf("ranked+pending: got %v want %v (err %v)", got, want, err)
 	}
 }

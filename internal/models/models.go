@@ -16,6 +16,23 @@ const (
 	StatusLoved     = 4
 )
 
+// HasStatusDate reports whether sets with this status carry the date they
+// got it (ApprovedDate): ranked, approved, qualified and loved.
+func HasStatusDate(status int) bool {
+	return status >= StatusRanked && status <= StatusLoved
+}
+
+// OnlyDatedStatuses reports whether statuses is a non-empty filter made up
+// only of statuses that have a date, so results can be ordered by it.
+func OnlyDatedStatuses(statuses []int) bool {
+	for _, s := range statuses {
+		if !HasStatusDate(s) {
+			return false
+		}
+	}
+	return len(statuses) > 0
+}
+
 // Set is a beatmapset in cheesegull format.
 type Set struct {
 	ID               int       `json:"SetID"`

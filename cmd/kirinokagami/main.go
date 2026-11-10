@@ -65,7 +65,9 @@ func run(cfgPath string, log *slog.Logger) error {
 	// Search index: load the snapshot first so search works immediately,
 	// then rebuild in the background and on the cron schedule.
 	srch := search.New(cfg.Search, store, log.With("component", "search"))
-	if err := srch.LoadSnapshot(); err != nil {
+	if err := srch.LoadSnapshot(); errors.Is(err, search.ErrSnapshotOutdated) {
+		log.Info("saved search index is from an older version, rebuilding it from the database")
+	} else if err != nil {
 		log.Warn("could not load search snapshot", "err", err)
 	}
 	if cfg.Search.RebuildOnStart || !srch.Ready() {

@@ -376,6 +376,7 @@ func (s *Store) Stats(ctx context.Context) (sets, beatmaps int, err error) {
 type SearchRow struct {
 	ID            int
 	RankedStatus  int
+	ApprovedDate  sql.NullTime
 	Modes         uint8
 	Favourites    int
 	Artist        string
@@ -389,7 +390,7 @@ type SearchRow struct {
 
 // StreamSearchRows calls fn for every set, highest ID first.
 func (s *Store) StreamSearchRows(ctx context.Context, fn func(*SearchRow)) error {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, ranked_status, modes, favourites,
+	rows, err := s.db.QueryContext(ctx, `SELECT id, ranked_status, approved_date, modes, favourites,
     artist, artist_unicode, title, title_unicode, creator, source, tags FROM sets ORDER BY id DESC`)
 	if err != nil {
 		return err
@@ -397,7 +398,7 @@ func (s *Store) StreamSearchRows(ctx context.Context, fn func(*SearchRow)) error
 	defer rows.Close()
 	var r SearchRow
 	for rows.Next() {
-		if err := rows.Scan(&r.ID, &r.RankedStatus, &r.Modes, &r.Favourites, &r.Artist, &r.ArtistUnicode,
+		if err := rows.Scan(&r.ID, &r.RankedStatus, &r.ApprovedDate, &r.Modes, &r.Favourites, &r.Artist, &r.ArtistUnicode,
 			&r.Title, &r.TitleUnicode, &r.Creator, &r.Source, &r.Tags); err != nil {
 			return err
 		}
@@ -407,7 +408,8 @@ func (s *Store) StreamSearchRows(ctx context.Context, fn func(*SearchRow)) error
 }
 
 // FallbackSearch runs a (slow) LIKE-based search directly against the
-// database. It is only used while the search index is not built yet.
+// database. It is only used while the search index is not built yet. The
+// order matches the index: see search.Index.Query.
 func (s *Store) FallbackSearch(ctx context.Context, terms []string, statuses []int, modeMask uint8, amount, offset int) ([]int, error) {
 	q := "SELECT id FROM sets WHERE 1=1"
 	var args []any
@@ -425,7 +427,12 @@ func (s *Store) FallbackSearch(ctx context.Context, terms []string, statuses []i
 		q += " AND CONCAT_WS(' ', artist, artist_unicode, title, title_unicode, creator, source, tags) LIKE ?"
 		args = append(args, "%"+escapeLike(t)+"%")
 	}
-	q += " ORDER BY id DESC LIMIT ? OFFSET ?"
+	if len(terms) == 0 && models.OnlyDatedStatuses(statuses) {
+		// Most recently ranked / loved / qualified first.
+		q += " ORDER BY approved_date IS NULL, approved_date DESC, id DESC LIMIT ? OFFSET ?"
+	} else {
+		q += " ORDER BY id DESC LIMIT ? OFFSET ?"
+	}
 	args = append(args, amount, offset)
 
 	rows, err := s.db.QueryContext(ctx, q, args...)

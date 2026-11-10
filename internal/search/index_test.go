@@ -1,6 +1,10 @@
 package search
 
 import (
+	"encoding/gob"
+	"errors"
+	"log/slog"
+	"os"
 	"slices"
 	"testing"
 	"time"
@@ -76,5 +80,55 @@ func TestCacheKeyNormalizes(t *testing.T) {
 	b := s.normalize(Params{Query: "freedom dive", Status: []int{1, 4}, Amount: 100})
 	if a.cacheKey() != b.cacheKey() {
 		t.Fatalf("keys differ: %q vs %q", a.cacheKey(), b.cacheKey())
+	}
+}
+
+func TestStatusFilterOrdersByStatusDate(t *testing.T) {
+	ix := Build([]Entry{
+		{ID: 900, Status: 1, Approved: 100, Modes: 1, Title: "new upload ranked long ago"},
+		{ID: 800, Status: 1, Approved: 0, Modes: 1, Title: "ranked but date missing"},
+		{ID: 700, Status: 4, Approved: 250, Modes: 1, Title: "loved"},
+		{ID: 600, Status: 0, Modes: 1, Title: "pending"},
+		{ID: 500, Status: 2, Approved: 300, Modes: 1, Title: "approved tie newer id"},
+		{ID: 400, Status: 1, Approved: 300, Modes: 1, Title: "ranked tie older id"},
+		{ID: 100, Status: 1, Approved: 400, Modes: 1, Title: "old upload ranked recently"},
+	}, time.Now())
+
+	cases := []struct {
+		name string
+		p    Params
+		want []int
+	}{
+		{"ranked+approved: newest date first, ties by newest ID, undated last",
+			Params{Status: []int{1, 2}, Amount: 10}, []int{100, 500, 400, 900, 800}},
+		{"loved only", Params{Status: []int{4}, Amount: 10}, []int{700}},
+		{"all dated statuses", Params{Status: []int{1, 2, 3, 4}, Amount: 10}, []int{100, 500, 400, 700, 900, 800}},
+		{"paging over date order", Params{Status: []int{1, 2}, Amount: 2, Offset: 2}, []int{400, 900}},
+		{"mixed with pending keeps ID order", Params{Status: []int{1, 0}, Amount: 10}, []int{900, 800, 600, 400, 100}},
+		{"no filter keeps ID order", Params{Amount: 3}, []int{900, 800, 700}},
+	}
+	for _, c := range cases {
+		if got := ix.Query(c.p); !slices.Equal(got, c.want) {
+			t.Errorf("%s: got %v want %v", c.name, got, c.want)
+		}
+	}
+
+	// Text searches still rank by relevance, not by date. Every matching
+	// title contains "ranked" equally, so ties fall back to favourites (all
+	// 0), then newest ID.
+	if got, want := ix.Query(Params{Query: "ranked", Status: []int{1}, Amount: 10}), []int{900, 800, 400, 100}; !slices.Equal(got, want) {
+		t.Errorf("text search: got %v want %v", got, want)
+	}
+}
+
+func TestOldSnapshotIsIgnored(t *testing.T) {
+	path := t.TempDir() + "/idx.gob"
+	s := &Service{log: slog.New(slog.DiscardHandler)}
+	s.cfg.SnapshotPath = path
+	f, _ := os.Create(path)
+	gob.NewEncoder(f).Encode(snapshot{Version: snapshotVersion - 1, Entries: []Entry{{ID: 1}}})
+	f.Close()
+	if err := s.LoadSnapshot(); !errors.Is(err, ErrSnapshotOutdated) || s.Ready() {
+		t.Fatalf("old snapshot was loaded (err=%v ready=%v)", err, s.Ready())
 	}
 }

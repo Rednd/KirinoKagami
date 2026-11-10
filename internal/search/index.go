@@ -9,6 +9,7 @@
 package search
 
 import (
+	"cmp"
 	mbits "math/bits"
 	"slices"
 	"sort"
@@ -16,12 +17,17 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
+
+	"kirinokagami/internal/models"
 )
 
 // Entry is the search-relevant data of one beatmapset. Strings are lower-case.
 type Entry struct {
-	ID         int32
-	Status     int8
+	ID     int32
+	Status int8
+	// Approved is when the set was ranked / approved / qualified / loved
+	// (Unix seconds, 0 if it has no such date).
+	Approved   int64
 	Modes      uint8
 	Favourites int32
 	Title      string
@@ -32,6 +38,7 @@ type Entry struct {
 
 type Index struct {
 	entries  []Entry  // ordered by ID descending
+	byDate   []uint32 // entries whose status has a date, newest date first (undated last)
 	tokens   []string // sorted, unique
 	offsets  []uint32 // postings for tokens[i] are postings[offsets[i]:offsets[i+1]]
 	postings []uint32 // entry indices, ascending
@@ -77,6 +84,25 @@ func Build(entries []Entry, builtAt time.Time) *Index {
 		ix.postings = append(ix.postings, lists[tok]...)
 	}
 	ix.offsets[len(ix.tokens)] = uint32(len(ix.postings))
+
+	// byDate lists every set whose status has a date: newest date first
+	// (stable sort over ID-descending entries, so ties go to the newest ID),
+	// then any such sets missing their date, newest ID first.
+	var undated []uint32
+	for i := range entries {
+		if !models.HasStatusDate(int(entries[i].Status)) {
+			continue
+		}
+		if entries[i].Approved > 0 {
+			ix.byDate = append(ix.byDate, uint32(i))
+		} else {
+			undated = append(undated, uint32(i))
+		}
+	}
+	slices.SortStableFunc(ix.byDate, func(a, b uint32) int {
+		return cmp.Compare(entries[b].Approved, entries[a].Approved)
+	})
+	ix.byDate = append(ix.byDate, undated...)
 	return ix
 }
 
@@ -125,15 +151,29 @@ func (f *filter) match(e *Entry) bool {
 }
 
 // Query returns the IDs for one page of results.
+//
+// Ordering:
+//   - with search text: by relevance, then favourites, then newest set ID;
+//   - without text, filtered to only ranked / approved / qualified / loved:
+//     most recently ranked / qualified / loved first (ties: newest set ID);
+//   - otherwise without text: newest set ID first (cheesegull's order).
 func (ix *Index) Query(p Params) []int {
 	f := newFilter(p)
 	terms := queryTerms(p.Query)
 
 	if len(terms) == 0 {
-		// No text: newest sets first, which is the entry order already.
+		byDate := models.OnlyDatedStatuses(p.Status)
+		n := len(ix.entries)
+		if byDate {
+			n = len(ix.byDate)
+		}
 		out := make([]int, 0, p.Amount)
 		skip := p.Offset
-		for i := range ix.entries {
+		for k := range n {
+			i := k
+			if byDate {
+				i = int(ix.byDate[k])
+			}
 			e := &ix.entries[i]
 			if !f.match(e) {
 				continue

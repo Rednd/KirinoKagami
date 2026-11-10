@@ -413,7 +413,10 @@
     if (state.mode >= 0) parts.push(MODE_NAMES[state.mode]);
     const noun = state.done && state.count === 1 ? 'beatmap' : 'beatmaps';
     const what = parts.length ? `${parts.join(' ')} ${noun}` : noun;
-    return state.q ? `${what} matching “${state.q}”` : `newest ${what}`;
+    if (state.q) return `${what} matching “${state.q}”`;
+    // Ranked / qualified / loved lists are ordered by the date the set got
+    // that status; everything else by newest upload.
+    return ['ranked', 'qualified', 'loved'].includes(state.status) ? `recently ${what}` : `newest ${what}`;
   }
 
   // One persistent button, so keyboard focus stays on it between pages.

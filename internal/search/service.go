@@ -145,9 +145,14 @@ func (s *Service) Rebuild(ctx context.Context) error {
 	}
 	entries := make([]Entry, 0, capHint)
 	err := s.store.StreamSearchRows(ctx, func(r *db.SearchRow) {
+		var approved int64
+		if r.ApprovedDate.Valid {
+			approved = r.ApprovedDate.Time.Unix()
+		}
 		entries = append(entries, Entry{
 			ID:         int32(r.ID),
 			Status:     int8(r.RankedStatus),
+			Approved:   approved,
 			Modes:      r.Modes,
 			Favourites: int32(r.Favourites),
 			Title:      strings.ToLower(r.Title),
@@ -199,7 +204,13 @@ type snapshot struct {
 	Entries []Entry
 }
 
-const snapshotVersion = 1
+// Bump when Entry changes; an older snapshot is then ignored and the index is
+// rebuilt from the database. (2: added Entry.Approved)
+const snapshotVersion = 2
+
+// ErrSnapshotOutdated means the saved index was written by an older version
+// and will be rebuilt from the database instead.
+var ErrSnapshotOutdated = errors.New("saved search index is from an older version")
 
 func (s *Service) saveSnapshot(ix *Index) error {
 	if s.cfg.SnapshotPath == "" {
@@ -244,7 +255,7 @@ func (s *Service) LoadSnapshot() error {
 		return fmt.Errorf("decoding search snapshot: %w", err)
 	}
 	if snap.Version != snapshotVersion {
-		return fmt.Errorf("search snapshot version %d != %d, ignoring", snap.Version, snapshotVersion)
+		return fmt.Errorf("%w (version %d, current %d)", ErrSnapshotOutdated, snap.Version, snapshotVersion)
 	}
 	ix := Build(snap.Entries, snap.BuiltAt)
 	s.idx.Store(ix)

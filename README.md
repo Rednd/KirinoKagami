@@ -15,6 +15,15 @@ index that is rebuilt on a cron schedule, and caches `.osz` downloads on disk.
 | `GET /d/{setID}` | Download `.osz`. Append `n` (`/d/123n`) or `?novideo=1` for the no-video variant |
 | `GET /api/status` | DB counts, search index state, scraper stats |
 
+**Result order** for `/api/search`:
+- **With `query` text:** by relevance (matches in the title count most, then artist,
+  mapper, tags), then favourites, then newest set ID.
+- **Without text, filtered only to statuses that have a date** (`1` ranked, `2` approved,
+  `3` qualified, `4` loved, in any combination): the date the set got that status, newest
+  first. Ties go to the newest set ID, and any such set missing its date comes last.
+- **Otherwise without text** (no status filter, or one including pending, WIP or
+  graveyard): newest set ID first, the same as cheesegull.
+
 Status values follow cheesegull / osu! API v1: `-2` graveyard, `-1` WIP, `0` pending, `1`
 ranked, `2` approved, `3` qualified, `4` loved. Modes: `0` std, `1` taiko, `2` catch, `3` mania.
 
