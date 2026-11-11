@@ -55,6 +55,10 @@ favourites.
   set's preview. A player bar at the bottom of the page can pause and resume, skip 5
   seconds back or forward, seek to any point, and close the preview. The same controls
   appear inside the detail view.
+- **Logo:** drop an image into [`branding/`](branding/README.md) as `logo.png` (or
+  `.svg`, `.webp`, `.jpg`, `.gif`, `.ico`) and restart. It's shown cropped to a circle as
+  the header logo, and used as the browser-tab icon. Without one, the built-in logo is
+  shown.
 - **Theme:** opens in light mode. A button at the top right switches to dark mode, and
   the browser remembers the choice.
 

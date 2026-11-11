@@ -20,7 +20,8 @@
   const MODE_SVG = [
     '<circle cx="8" cy="8" r="6.2"/><circle cx="8" cy="8" r="2.4"/>',
     '<circle cx="8" cy="8" r="6.2"/><path d="M8 1.8v12.4"/>',
-    '<circle cx="8" cy="10" r="4.2"/><path d="M8 5.8V2.2M8 2.2l2.4 1.4"/>',
+    // catch: fruit falling onto the catcher's plate
+    '<path d="M1.8 13.4h12.4"/><circle cx="4.4" cy="8.6" r="2" fill="currentColor" stroke="none"/><circle cx="8" cy="3.4" r="2" fill="currentColor" stroke="none"/><circle cx="11.6" cy="7.6" r="2" fill="currentColor" stroke="none"/>',
     '<path d="M3 2v12M8 2v12M13 2v12"/>',
   ];
   const ICONS = {
@@ -696,7 +697,7 @@
   // ---------- footer ----------
 
   async function loadFooter() {
-    const footer = $('#footer');
+    const footer = $('#footer-stats');
     const apiLink = h('a', { href: '/api/search' }, 'cheesegull-compatible API');
     footer.replaceChildren(apiLink);
     try {

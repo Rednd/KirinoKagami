@@ -13,6 +13,7 @@ services:
       - "62011:62011"
     volumes:
       - ./config.toml:/app/config.toml:ro
+      - ./branding:/app/branding:ro   # custom logo for the frontend (see branding/README.md)
       - kirino-data:/app/data
     extra_hosts:
       - "host.docker.internal:host-gateway"

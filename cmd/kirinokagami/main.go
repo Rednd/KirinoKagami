@@ -120,7 +120,11 @@ func run(cfgPath string, log *slog.Logger) error {
 		if fe, err = frontend.New(cfg.Frontend, cfg.Downloads.Enabled); err != nil {
 			return err
 		}
-		log.Info("browser frontend enabled", "path", "/")
+		if logo := fe.LogoFile(); logo != "" {
+			log.Info("browser frontend enabled", "path", "/", "logo", logo)
+		} else {
+			log.Info("browser frontend enabled", "path", "/", "logo", "built-in")
+		}
 	}
 
 	srv := &http.Server{

@@ -144,6 +144,17 @@ a { color: var(--accent); }
   flex-shrink: 0;
 }
 
+/* Custom logo (branding/logo.*): cropped to a circle, filling it from the
+   centre of the image. */
+.brand-logo {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: center;
+  flex-shrink: 0;
+}
+
 .brand-mark {
   width: 26px;
   height: 26px;
@@ -561,12 +572,36 @@ a { color: var(--accent); }
 .footer {
   border-top: 1px solid var(--border);
   padding: 16px var(--gutter);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
   text-align: center;
   color: var(--text-3);
   font-size: 12.5px;
 }
 
-.footer a { color: var(--text-2); }
+.footer-stats { margin: 0; }
+.footer-stats a { color: var(--text-2); }
+
+.github-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: border-color .15s, color .15s;
+}
+
+.github-link:hover { border-color: var(--accent); color: var(--accent); }
+.github-link svg { width: 16px; height: 16px; fill: currentColor; }
 
 /* ---------- detail dialog ---------- */
 
